@@ -52,9 +52,28 @@ parser MyParser(packet_in packet,
                 inout standard_metadata_t standard_metadata) {
 
     state start {
-        /* TODO: add parser logic */
+        // Here we just make transistions to the different offsets to the headers we want to parse.. 
+        transition parse_ethernet;
+    }
+    // We parse the outhemost header first.. parse ethernet.. 
+    state parse_ethernet {
+        // the packet has an extract method
+        packet.extract(hdr.ethernet);
+        // Transition Select works like switch case
+        transition select(hdr.ethernet.etherType){
+        // We see if the ethertype is ipv4 and then if yes, we need to parse the ipv4 header
+        TYPE_IPV4 : parse_ipv4;
+        // Else we accept
+        default : accept;
+        }
+    }
+    // Ipv4 parser... parse and accept
+    state parse_ipv4{
+        packet.extract(hdr.ipv4);
         transition accept;
     }
+    
+
 }
 
 
@@ -80,9 +99,19 @@ control MyIngress(inout headers hdr,
     
     action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
         /* TODO: fill out code in action body */
+        // Things like the name of the port and dst addr come from the table installed by the cotrol plane
+        // Egress spec is the used in the ingress logic to set a possible outside port 
+        standard_metadata.egress_spec = port;
+        // We change the ethernet dst add and fortward, note that the control plane logic is pre-installed
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = dstAddr;
+        // Reduce the ttl
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
     
     table ipv4_lpm {
+        // We define a Table, each table contains what the key to match on, possible actions, size of table and default action
+    // LPM stands for longest prefix match
         key = {
             hdr.ipv4.dstAddr: lpm;
         }
@@ -99,7 +128,9 @@ control MyIngress(inout headers hdr,
         /* TODO: fix ingress control logic
          *  - ipv4_lpm should be applied only when IPv4 header is valid
          */
+        if (hdr.ipv4.isValid()){
         ipv4_lpm.apply();
+        }
     }
 }
 
@@ -145,6 +176,9 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         /* TODO: add deparser logic */
+        // We serialize the packet in order and apply- 
+        packet.emit(hdr.ethernet);
+        packet.emit(hdr.ipv4);
     }
 }
 
