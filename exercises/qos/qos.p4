@@ -41,7 +41,8 @@ header ethernet_t {
 header ipv4_t {
     bit<4>    version;
     bit<4>    ihl;
-    bit<8>    tos;
+    bit<6>    diffserv;
+    bit<2>    ecn;
     bit<16>   totalLen;
     bit<16>   identification;
     bit<3>    flags;
@@ -119,6 +120,82 @@ control MyIngress(inout headers hdr,
 
 /* TODO: Implement actions for different traffic classes */
 
+    /* Default Forwarding */
+    action default_forwarding() {
+        hdr.ipv4.diffserv = 0;
+    }
+
+    /* Expedited Forwarding */
+    action expedited_forwarding() {
+        hdr.ipv4.diffserv = 46;
+    }
+
+    /* Voice Admit */
+    action voice_admit() {
+        hdr.ipv4.diffserv = 44;
+    }
+
+    /* Assured Forwarding */
+    /* Class 1 Low drop probability */
+    action af_11() {
+        hdr.ipv4.diffserv = 10;
+    }
+
+    /* Class 1 Med drop probability */
+    action af_12() {
+        hdr.ipv4.diffserv = 12;
+    }
+
+    /* Class 1 High drop probability */
+    action af_13() {
+        hdr.ipv4.diffserv = 14;
+    }
+
+    /* Class 2 Low drop probability */
+    action af_21() {
+        hdr.ipv4.diffserv = 18;
+    }
+
+    /* Class 2 Med drop probability */
+    action af_22() {
+        hdr.ipv4.diffserv = 20;
+    }
+
+    /* Class 2 High drop probability */
+    action af_23() {
+        hdr.ipv4.diffserv = 22;
+    }
+
+    /* Class 3 Low drop probability */
+    action af_31() {
+        hdr.ipv4.diffserv = 26;
+    }
+
+    /* Class 3 Med drop probability */
+    action af_32() {
+        hdr.ipv4.diffserv = 28;
+    }
+
+    /* Class 3 High drop probability */
+    action af_33() {
+        hdr.ipv4.diffserv = 30;
+    }
+
+    /* Class 4 Low drop probability */
+    action af_41() {
+        hdr.ipv4.diffserv = 34;
+    }
+
+    /* Class 4 Med drop probability */
+    action af_42() {
+        hdr.ipv4.diffserv = 36;
+    }
+
+    /* Class 4 High drop probability */
+    action af_43() {
+        hdr.ipv4.diffserv = 38;
+    }
+
 
     table ipv4_lpm {
         key = {
@@ -136,6 +213,13 @@ control MyIngress(inout headers hdr,
 /* TODO: set hdr.ipv4.diffserv on the basis of protocol */
     apply {
         if (hdr.ipv4.isValid()) {
+            if (hdr.ipv4.protocol == IP_PROTOCOLS_UDP) {
+                expedited_forwarding();
+	        }
+            else if (hdr.ipv4.protocol == IP_PROTOCOLS_TCP) {
+	        voice_admit();
+            }
+            // Then just forward
             ipv4_lpm.apply();
         }
     }
@@ -163,7 +247,8 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 	    hdr.ipv4.isValid(),
             { hdr.ipv4.version,
               hdr.ipv4.ihl,
-              hdr.ipv4.tos,
+              hdr.ipv4.diffserv,
+              hdr.ipv4.ecn,
               hdr.ipv4.totalLen,
               hdr.ipv4.identification,
               hdr.ipv4.flags,
