@@ -243,6 +243,13 @@ control MyEgress(inout headers hdr,
             // last_time_reg.write(<index>, <val>); 
             // hdr.probe_data[0].last_time = ...
             // hdr.probe_data[0].cur_time = ...
+            hdr.probe_data[0].port = (bit<8>)standard_metadata.egress_port;
+            hdr.probe_data[0].byte_cnt = byte_cnt;
+            // read / update the last_time_reg
+            last_time_reg.read(last_time, (bit<32>)standard_metadata.egress_port);
+            last_time_reg.write((bit<32>)standard_metadata.egress_port, cur_time);
+            hdr.probe_data[0].last_time = last_time;
+            hdr.probe_data[0].cur_time = cur_time;
         }
     }
 }
